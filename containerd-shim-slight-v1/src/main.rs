@@ -15,7 +15,7 @@ use containerd_shim_wasm::sandbox::Instance;
 use containerd_shim_wasm::sandbox::{instance::InstanceConfig, ShimCli};
 use log::info;
 
-use slight_lib::commands::run::handle_run;
+use slight_lib::commands::run::{handle_run, IORedirects, RunArgs};
 use tokio::runtime::Runtime;
 
 type ExitCode = Arc<(Mutex<Option<(u32, DateTime<Utc>)>>, Condvar)>;
@@ -80,9 +80,9 @@ impl Instance for Wasi {
         let bundle = self.bundle.clone();
 
         // FIXME: redirect slight stdio to pod stdio
-        let _pod_stdin = self.stdin.clone();
-        let _pod_stdout = self.stdout.clone();
-        let _pod_stderr = self.stderr.clone();
+        let pod_stdin = self.stdin.clone();
+        let pod_stdout = self.stdout.clone();
+        let pod_stderr = self.stderr.clone();
 
         thread::Builder::new()
             .name(self.id.clone())
@@ -111,7 +111,16 @@ impl Instance for Wasi {
                         }
                     });
 
-                    let f = handle_run(wasm_path, &toml_file_path);
+                    let args = RunArgs{
+                        module: PathBuf::from(wasm_path),
+                        slightfile: PathBuf::from(&toml_file_path),
+                        io_redirects: Some(IORedirects {
+                            stdin_path: PathBuf::from(&pod_stdin),
+                            stdout_path: PathBuf::from(&pod_stdout),
+                            stderr_path: PathBuf::from(&pod_stderr),
+                        }),
+                    };
+                    let f = handle_run(args);
 
                     info!(" >>> notifying main thread we are about to start");
                     tx.send(Ok(())).unwrap();
