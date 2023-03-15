@@ -39,8 +39,8 @@ pub fn prepare_module(bundle: String) -> Result<(PathBuf, PathBuf), Error> {
     let working_dir = oci::get_root(&spec);
 
     // change the working directory to the rootfs
-    std::os::unix::fs::chroot(working_dir).unwrap();
-    std::env::set_current_dir("/").unwrap();
+    // std::os::unix::fs::chroot(working_dir).unwrap();
+    // std::env::set_current_dir("/").unwrap();
 
     // add env to current proc
     let env = spec.process().as_ref().unwrap().env().as_ref().unwrap();
@@ -51,8 +51,8 @@ pub fn prepare_module(bundle: String) -> Result<(PathBuf, PathBuf), Error> {
         };
     }
 
-    let mod_path = PathBuf::from("slightfile.toml");
-    let wasm_path = PathBuf::from("app.wasm");
+    let mod_path = working_dir.join("slightfile.toml");
+    let wasm_path = working_dir.join("app.wasm");
     Ok((wasm_path, mod_path))
 }
 
@@ -64,9 +64,9 @@ impl Instance for Wasi {
         Wasi {
             exit_code: Arc::new((Mutex::new(None), Condvar::new())),
             id,
-            stdin: cfg.get_stdin().unwrap_or_default(),
-            stdout: cfg.get_stdout().unwrap_or_default(),
-            stderr: cfg.get_stderr().unwrap_or_default(),
+            stdin: cfg.get_stdin().unwrap(),
+            stdout: cfg.get_stdout().unwrap(),
+            stderr: cfg.get_stderr().unwrap(),
             bundle: cfg.get_bundle().unwrap_or_default(),
             shutdown_signal: Arc::new((Mutex::new(false), Condvar::new())),
         }
@@ -78,8 +78,6 @@ impl Instance for Wasi {
         let shutdown_signal = self.shutdown_signal.clone();
         let (tx, rx) = channel::<Result<(), Error>>();
         let bundle = self.bundle.clone();
-
-        // FIXME: redirect slight stdio to pod stdio
         let pod_stdin = self.stdin.clone();
         let pod_stdout = self.stdout.clone();
         let pod_stderr = self.stderr.clone();
@@ -87,6 +85,7 @@ impl Instance for Wasi {
         thread::Builder::new()
             .name(self.id.clone())
             .spawn(move || {
+
                 let (wasm_path, mod_path) = match prepare_module(bundle) {
                     Ok(f) => f,
                     Err(err) => {
@@ -115,9 +114,9 @@ impl Instance for Wasi {
                         module: PathBuf::from(wasm_path),
                         slightfile: PathBuf::from(&toml_file_path),
                         io_redirects: Some(IORedirects {
-                            stdin_path: PathBuf::from(&pod_stdin),
-                            stdout_path: PathBuf::from(&pod_stdout),
-                            stderr_path: PathBuf::from(&pod_stderr),
+                            stdin_path: Some(PathBuf::from(pod_stdin)),
+                            stdout_path: Some(PathBuf::from(pod_stdout)),
+                            stderr_path: Some(PathBuf::from(pod_stderr)),
                         }),
                     };
                     let f = handle_run(args);
@@ -148,7 +147,10 @@ impl Instance for Wasi {
 
         info!(" >>> waiting for start notification");
         match rx.recv().unwrap() {
-            Ok(_) => (),
+            Ok(_) => {
+                info!(" >>> started the instance");
+                ()
+            },
             Err(err) => {
                 info!(" >>> error starting instance: {}", err);
                 let code = self.exit_code.clone();
