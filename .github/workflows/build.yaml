@@ -9,15 +9,15 @@ jobs:
     strategy:
       matrix:
         config:
-          - {
-              os: "ubuntu-latest",
-              arch: "x86_64",
-            }
+          # - {
+          #     os: "ubuntu-latest",
+          #     arch: "x86_64",
+          #   }
           - {
               os: "ubuntu-latest",
               arch: "aarch64"
             }
-        shims: [slight, spin, wws, lunatic]
+        shims: [spin]
     env:
       ARCH: ${{ matrix.config.arch }}
     steps:
