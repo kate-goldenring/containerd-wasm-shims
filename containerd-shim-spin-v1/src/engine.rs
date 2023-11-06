@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use spin_trigger::TriggerHooks;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use containerd_shim_wasm::container::{Engine, RuntimeContext, Stdio};
 use log::info;
@@ -64,6 +64,10 @@ impl SpinEngine {
         // Build trigger config
         let loader = loader::TriggerLoader::new(working_dir.clone(), true);
         let runtime_config = RuntimeConfig::new(PathBuf::from("/").into());
+        // Load in runtime config if one exists in root
+        if Path::new("/runtime-config.toml").exists() {
+            runtime_config.merge_config_file("/runtime-config.toml");
+        }
         let mut builder = TriggerExecutorBuilder::new(loader);
         builder
             .hooks(StdioTriggerHook{})
