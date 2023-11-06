@@ -9,8 +9,8 @@ on:
 jobs:
   build_and_push:
     permissions:
-      contents: write
-      packages: write
+      contents: read
+      packages: read
     runs-on: ubuntu-latest
     strategy:
       matrix:
