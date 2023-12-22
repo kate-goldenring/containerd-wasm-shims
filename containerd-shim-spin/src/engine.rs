@@ -231,6 +231,7 @@ impl SpinEngine {
             .config_mut()
             .wasmtime_config()
             .cranelift_opt_level(spin_core::wasmtime::OptLevel::Speed);
+        builder.config_mut().disable_pooling();
         let init_data = Default::default();
         let executor = builder.build(locked_url, runtime_config, init_data).await?;
         Ok(executor)
